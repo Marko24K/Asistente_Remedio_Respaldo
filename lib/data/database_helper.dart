@@ -25,7 +25,8 @@ class DBHelper {
             telefono TEXT,
             direccion TEXT,
             points INTEGER DEFAULT 0,
-            nivel INTEGER DEFAULT 1
+            nivel INTEGER DEFAULT 1,
+            totalPoints INTEGER DEFAULT 0
           );
         """);
 
@@ -154,6 +155,14 @@ class DBHelper {
           "frequencyHours": 1,
           "nextTrigger": null,
         });
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          //  Migración para BD antigua
+          await db.execute("""
+        ALTER TABLE pacientes ADD COLUMN totalPoints INTEGER DEFAULT 0;
+      """);
+        }
       },
     );
   }
@@ -347,14 +356,27 @@ class DBHelper {
   // =========================================================
   //  PUNTOS
   // =========================================================
+  static Future<void> addTotalPoints(int puntos, String code) async {
+    //sumar puntos históricos
+    final db = await database;
+    await db.rawUpdate(
+      """
+    UPDATE pacientes
+    SET totalPoints = totalPoints + ?
+    WHERE code = ?
+    """,
+      [puntos, code],
+    );
+  }
+
   static Future<void> addPoints(int puntos, String code) async {
     final db = await database;
 
     await db.rawUpdate(
       """
-      UPDATE pacientes
-      SET points = points + ?
-      WHERE code = ?
+    UPDATE pacientes
+    SET points = points + ?
+    WHERE code = ?
     """,
       [puntos, code],
     );

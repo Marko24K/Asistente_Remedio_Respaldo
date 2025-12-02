@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'patient_home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../data/database_helper.dart';
@@ -48,7 +49,7 @@ class _PointsScreenState extends State<PointsScreen> {
   Future<void> loadPoints() async {
     final p = await DBHelper.getPatient(widget.code);
     puntos = p?["points"] ?? 0;
-    totalPoints = p?["totalPoints"] ?? puntos;
+    totalPoints = p?["totalPoints"] ?? 0;
 
     nivel = (totalPoints ~/ metaNivel) + 1;
 
@@ -353,7 +354,7 @@ class _PointsScreenState extends State<PointsScreen> {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => PatientHomeScreen(patientCode: widget.code),
+                  builder: (_) => PatientHomeScreen(code: widget.code),
                 ),
               );
             },
