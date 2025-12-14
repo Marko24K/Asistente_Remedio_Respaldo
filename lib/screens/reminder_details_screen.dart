@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../data/database_helper.dart';
 import '../services/audio_player_service.dart';
 import '../services/local_notifications.dart';
-
-import '../screens/immediate_take_screen.dart';
-import '../screens/delayed_question_screen.dart';
+import 'patient_home_screen.dart';
+import 'points_screen.dart';
 
 class ReminderDetailScreen extends StatelessWidget {
   final Map<String, dynamic> reminder;
@@ -14,15 +14,14 @@ class ReminderDetailScreen extends StatelessWidget {
 
   String _formatHour(DateTime? dt, String fallback) {
     if (dt == null) return fallback;
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return "$h:$m";
+    return DateFormat("HH:mm").format(dt);
   }
 
   @override
   Widget build(BuildContext context) {
     final r = reminder;
 
+    // Normalizar nextTrigger
     DateTime? nextTrigger;
     final rawNext = r["nextTrigger"];
     if (rawNext is DateTime) {
@@ -38,8 +37,8 @@ class ReminderDetailScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF4F7F6),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
+        foregroundColor: Colors.black87,
         title: const Text("Detalles"),
       ),
       body: SingleChildScrollView(
@@ -47,13 +46,9 @@ class ReminderDetailScreen extends StatelessWidget {
         child: Column(
           children: [
             _infoCard(context, r, horaProgramada, proximaToma),
-
             const SizedBox(height: 35),
-
             _tomarAntesButton(context, r),
-
             const SizedBox(height: 25),
-
             _simularNotificacionButton(context, r),
           ],
         ),
@@ -61,9 +56,9 @@ class ReminderDetailScreen extends StatelessWidget {
     );
   }
 
-  // ===================================================================
-  //  SIMULAR NOTIFICACIÓN (FLUJO COMPLETO: inmediata → diferida)
-  // ===================================================================
+  // =========================================================================
+  // 🔔 BOTÓN: SIMULAR NOTIFICACIÓN (inmediata → diferida)
+  // =========================================================================
   Widget _simularNotificacionButton(BuildContext context, Map r) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
@@ -75,57 +70,32 @@ class ReminderDetailScreen extends StatelessWidget {
         final id = r["id"];
         final code = r["patientCode"];
         final med = r["medication"];
-        final hour = r["hour"];
 
-        // NOTIFICACIÓN INMEDIATA
+        // Próxima hora simulada
+        final simulatedNext = DateTime.now().add(const Duration(minutes: 1));
+        final nextHour = DateFormat("HH:mm").format(simulatedNext);
+
+        // 1) Notificación inmediata (solo mostrar)
         await LocalNoti.showImmediate(
           title: "¡Hora de tu medicamento!",
-          body: "$med a las $hour",
-          payload: "immediate|$id|$code|$hour|$med",
+          body: "$med a las $nextHour",
+          payload: "immediate|$id|$code|$nextHour|$med",
         );
 
-        // ABRIR PANTALLA DE TOMA INMEDIATA
-        if (context.mounted) {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ImmediateTakeScreen(
-                reminderId: id,
-                code: code,
-                medication: med,
-                hour: hour,
-              ),
-            ),
-          );
-        }
-
-        // SI NO MARCA EN 1 MINUTO → volver a home
+        // 2) Tiempo para marcar
         await Future.delayed(const Duration(minutes: 1));
 
+        // 3) Cerrar pantalla → vuelve a home
         if (context.mounted) Navigator.pop(context, true);
 
-        // Esperar 10 segundos y mostrar DIFERIDA
+        // 4) 10 segundos → notificación diferida
         await Future.delayed(const Duration(seconds: 10));
 
-        if (context.mounted) {
-          await LocalNoti.showDelayedWithActions(
-            title: "¿Tomaste tu medicamento?",
-            body: "$med",
-            payload: "delayed|$id|$code|$hour|$med",
-          );
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DelayedQuestionScreen(
-                reminderId: id,
-                code: code,
-                medication: med,
-                hour: hour,
-              ),
-            ),
-          );
-        }
+        await LocalNoti.showDelayedWithActions(
+          title: "¿Tomaste tu medicamento?",
+          body: med,
+          payload: "delayed|$id|$code|$nextHour|$med",
+        );
       },
       child: const Text(
         "Simular Notificación",
@@ -134,105 +104,227 @@ class ReminderDetailScreen extends StatelessWidget {
     );
   }
 
-  // ===================================================================
-  //  TOMAR ANTES — REGISTRO + PUNTOS + POPUP
-  // ===================================================================
+  // =========================================================================
+  //  BOTÓN TOMAR ANTES (habilitado 1h antes y 1h después)
+  // =========================================================================
   Widget _tomarAntesButton(BuildContext context, Map r) {
+    // Calcular si el botón debe estar habilitado
+    DateTime? nextTrigger;
+    final rawNext = r["nextTrigger"];
+    if (rawNext is DateTime) {
+      nextTrigger = rawNext;
+    } else if (rawNext is String) {
+      nextTrigger = DateTime.tryParse(rawNext);
+    }
+
+    final now = DateTime.now();
+    bool isEnabled = false;
+
+    if (nextTrigger != null) {
+      final oneHourBefore = nextTrigger.subtract(const Duration(hours: 1));
+      final oneHourAfter = nextTrigger.add(const Duration(hours: 1));
+      isEnabled = now.isAfter(oneHourBefore) && now.isBefore(oneHourAfter);
+    }
+
     return GestureDetector(
-      onTap: () async {
-        final freq = (r["frequencyHours"] ?? 24) as int;
-        final id = r["id"] as int;
-        final code = r["patientCode"] as String;
-        final hora = r["hour"] as String;
-        const puntos = 10;
+      onTap: isEnabled
+          ? () async {
+              final freq = (r["frequencyHours"] ?? 24) as int;
+              final id = r["id"] as int;
+              final code = r["patientCode"] as String;
 
-        final now = DateTime.now();
-        final next = now.add(Duration(hours: freq));
+              final now = DateTime.now();
+              final next = now.add(Duration(hours: freq));
 
-        // Guardar nueva próxima toma
-        await DBHelper.updateNextTriggerById(id, next);
+              // Actualiza la BD
+              await DBHelper.updateNextTriggerById(id, next);
 
-        // KPIs
-        await DBHelper.addKpi(
-          reminderId: id,
-          code: code,
-          scheduledHour: hora,
-          tomo: true,
-          puntos: puntos,
-        );
+              // Registrar toma anticipada
+              await DBHelper.registrarToma(
+                idRecordatorio: id,
+                estado: 'a_tiempo',
+                fechaHoraReal: now,
+              );
 
-        await DBHelper.addPoints(puntos, code);
-        await DBHelper.addTotalPoints(puntos, code);
+              AudioPlayerService.playSound("sounds/correct-ding.mp3");
 
-        AudioPlayerService.playSound("sounds/correct-ding.mp3");
+              // POPUP para toma anticipada
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Ícono verde con estrella
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4CAF50),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.star,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
 
-        // POPUP
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text("¡Excelente!"),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.star, size: 60, color: Colors.amber),
-                  SizedBox(height: 10),
-                  Text(
-                    "+10 puntos",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                          // Título
+                          const Text(
+                            "¡Felicitaciones!",
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Puntos ganados
+                          const Text(
+                            "Ganaste 15 puntos",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF4CAF50),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Descripción
+                          const Text(
+                            "Gracias por confirmar tu toma. Tus puntos te acercan a nuevas recompensas.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.black87,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Botón "Ir a inicio"
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF4CAF50),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: () {
+                                Navigator.pop(ctx); // Cerrar dialog
+                                Navigator.pop(
+                                  context,
+                                ); // Cerrar reminder_details
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        PatientHomeScreen(code: code),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                "Ir a inicio",
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Botón "Ver mis puntos"
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx); // Cerrar dialog
+                              Navigator.pop(context); // Cerrar reminder_details
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => PointsScreen(code: code),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              "Ver mis puntos",
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF4CAF50),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Texto adicional
+                          const Text(
+                            "Podrás ver este cambio incluso si estás sin conexión.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54,
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  SizedBox(height: 10),
-                  Text("Recordatorio reprogramado."),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  child: const Text("OK"),
-                  onPressed: () => Navigator.pop(context),
+                );
+              }
+            }
+          : null,
+      child: Opacity(
+        opacity: isEnabled ? 1.0 : 0.4,
+        child: Container(
+          width: 220,
+          height: 220,
+          decoration: BoxDecoration(
+            color: isEnabled ? const Color(0xFF2E8B57) : Colors.grey,
+            shape: BoxShape.circle,
+          ),
+          child: const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check, color: Colors.white, size: 75),
+                SizedBox(height: 10),
+                Text(
+                  "Tomar ahora",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
-          );
-
-          await Future.delayed(const Duration(seconds: 2));
-          if (context.mounted) Navigator.pop(context, true);
-        }
-      },
-      child: Container(
-        width: 220,
-        height: 220,
-        decoration: const BoxDecoration(
-          color: Color(0xFF2E8B57),
-          shape: BoxShape.circle,
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check, color: Colors.white, size: 75),
-              SizedBox(height: 10),
-              Text(
-                "Tomar antes",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
           ),
         ),
       ),
     );
   }
 
-  // ===================================================================
-  //  TARJETA PRINCIPAL
-  // ===================================================================
+  // =========================================================================
+  // TARJETA CON DATOS DEL RECORDATORIO
+  // =========================================================================
   Widget _infoCard(
     BuildContext context,
     Map r,
@@ -268,22 +360,16 @@ class ReminderDetailScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-
           Text("${r['dose']} • ${r['type']}"),
           const SizedBox(height: 20),
-
           _item("Hora programada", horaProgramada),
           _divider(),
-
           _item("Próxima toma", proxima),
           _divider(),
-
           _item("Inicio", r["startDate"] ?? ""),
           _divider(),
-
           _item("Fin", r["endDate"] ?? ""),
           _divider(),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

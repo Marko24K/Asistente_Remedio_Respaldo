@@ -47,11 +47,18 @@ class _PointsScreenState extends State<PointsScreen> {
   }
 
   Future<void> loadPoints() async {
-    final p = await DBHelper.getPatient(widget.code);
-    puntos = p?["points"] ?? 0;
-    totalPoints = p?["totalPoints"] ?? 0;
+    final perfil = await DBHelper.getPerfilGamificacion(widget.code);
+    if (perfil == null) {
+      setState(() => loading = false);
+      return;
+    }
 
-    nivel = (totalPoints ~/ metaNivel) + 1;
+    puntos = perfil["puntos_actuales"] ?? 0;
+    totalPoints = perfil["xp_total"] ?? 0;
+    nivel = perfil["nivel"] ?? 1;
+
+    // Calcular XP para siguiente nivel
+    metaNivel = DBHelper.xpParaNivel(nivel + 1) - DBHelper.xpParaNivel(nivel);
 
     setState(() => loading = false);
   }
@@ -59,19 +66,46 @@ class _PointsScreenState extends State<PointsScreen> {
   Future<void> canjear(int costo, String nombre) async {
     if (puntos < costo) return;
 
-    await DBHelper.addPoints(-costo, widget.code);
+    // Obtener ID de recompensa desde lista local
+    // En producción, obtenerlo desde BD
+    final recompensas = await DBHelper.getRecompensasDisponibles();
+    final recomp = recompensas.firstWhere(
+      (r) => r['nombre_recompensa'] == nombre,
+      orElse: () => {},
+    );
+
+    if (recomp.isEmpty) return;
+
+    final exito = await DBHelper.canjearRecompensa(
+      codigoUnico: widget.code,
+      idRecompensa: recomp['id_recompensa'] as int,
+    );
+
+    if (!exito) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No tienes suficientes puntos"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     await loadPoints();
 
-    // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "Canjeaste: $nombre 🎉",
-          style: const TextStyle(fontSize: 17),
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Canjeaste: $nombre ",
+            style: const TextStyle(fontSize: 17),
+          ),
+          backgroundColor: Colors.green.shade700,
         ),
-        backgroundColor: Colors.green.shade700,
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -193,7 +227,14 @@ class _PointsScreenState extends State<PointsScreen> {
 
   // ------------------- TARJETA PROGRESO -------------------
   Widget _cardProgreso() {
-    double progreso = (totalPoints % metaNivel) / metaNivel;
+    final xpActual = totalPoints;
+    final xpNivelActual = DBHelper.xpParaNivel(nivel);
+    final xpSiguienteNivel = DBHelper.xpParaNivel(nivel + 1);
+    final xpEnNivel = xpActual - xpNivelActual;
+    final xpNecesario = xpSiguienteNivel - xpNivelActual;
+    
+    double progreso = xpEnNivel / xpNecesario;
+    if (progreso > 1.0) progreso = 1.0;
 
     return Container(
       width: double.infinity,
@@ -226,7 +267,7 @@ class _PointsScreenState extends State<PointsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                "Actual: $totalPoints pts",
+                "XP: $xpEnNivel / $xpNecesario",
                 style: const TextStyle(fontSize: 15),
               ),
               Text(

@@ -75,11 +75,11 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
   IconData _getIcon(String type) {
     final t = type.toLowerCase();
-    if (t.contains("inyec")) return FontAwesomeIcons.syringe;
-    if (t.contains("líq") || t.contains("jarabe")) {
+    if (t.contains("inyeccion")) return FontAwesomeIcons.syringe;
+    if (t.contains("líquido") || t.contains("jarabe")) {
       return FontAwesomeIcons.prescriptionBottle;
     }
-    if (t.contains("caps")) return FontAwesomeIcons.capsules;
+    if (t.contains("capsula")) return FontAwesomeIcons.capsules;
     return FontAwesomeIcons.pills;
   }
 

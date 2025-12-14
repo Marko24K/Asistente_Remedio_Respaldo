@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../data/database_helper.dart';
 import '../services/audio_player_service.dart';
+import 'patient_home_screen.dart';
+import 'points_screen.dart';
 
 class ImmediateTakeScreen extends StatelessWidget {
   final int reminderId;
@@ -34,15 +36,11 @@ class ImmediateTakeScreen extends StatelessWidget {
 
             GestureDetector(
               onTap: () async {
-                await DBHelper.addPoints(10, code);
-                await DBHelper.addTotalPoints(10, code);
-
-                await DBHelper.addKpi(
-                  reminderId: reminderId,
-                  code: code,
-                  scheduledHour: hour,
-                  tomo: true,
-                  puntos: 10,
+                // Registrar toma a tiempo
+                await DBHelper.registrarToma(
+                  idRecordatorio: reminderId,
+                  estado: 'a_tiempo',
+                  fechaHoraReal: DateTime.now(),
                 );
 
                 AudioPlayerService.playSound("sounds/correct-ding.mp3");
@@ -51,24 +49,133 @@ class ImmediateTakeScreen extends StatelessWidget {
                 if (context.mounted) {
                   showDialog(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text("¡Excelente!"),
-                      content: const Text(
-                        "Has ganado +10 puntos por registrar tu toma. Vas muy bien",
+                    barrierDismissible: false,
+                    builder: (ctx) => Dialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text("OK"),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Ícono verde con estrella
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Icon(
+                                Icons.star,
+                                color: Colors.white,
+                                size: 48,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Título
+                            const Text(
+                              "¡Felicitaciones!",
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Puntos ganados
+                            const Text(
+                              "Ganaste 10 puntos",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF4CAF50),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Descripción
+                            const Text(
+                              "Has marcado a tiempo tu toma. Tus puntos te acercan a nuevas recompensas.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Botón "Ir a inicio"
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF4CAF50),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(ctx); // Cerrar dialog
+                                  Navigator.pop(
+                                    context,
+                                  ); // Cerrar immediate_take_screen
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          PatientHomeScreen(code: code),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  "Ir a inicio",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Botón "Ver mis puntos"
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(ctx); // Cerrar dialog
+                                Navigator.pop(
+                                  context,
+                                ); // Cerrar immediate_take_screen
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PointsScreen(code: code),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                "Ver mis puntos",
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF4CAF50),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   );
                 }
-
-                await Future.delayed(const Duration(seconds: 1));
-
-                if (context.mounted) Navigator.pop(context, true);
               },
               child: Container(
                 width: 180,

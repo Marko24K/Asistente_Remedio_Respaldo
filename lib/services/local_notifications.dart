@@ -1,6 +1,6 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
-
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import '../screens/immediate_take_screen.dart';
 import '../screens/delayed_question_screen.dart';
 
@@ -8,33 +8,59 @@ class LocalNoti {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
-  // ===================== INIT ======================
-  static Future<void> init(BuildContext context) async {
+  //  Para navegar incluso con la app cerrada
+  static final GlobalKey<NavigatorState> navKey = GlobalKey<NavigatorState>();
+
+  static Future<void> init() async {
+    tz.initializeTimeZones();
+
     const android = AndroidInitializationSettings('notification_icon');
+
     final settings = InitializationSettings(android: android);
 
     await _plugin.initialize(
       settings,
-      onDidReceiveNotificationResponse: (res) {
-        _handleTap(context, res.payload);
+      onDidReceiveNotificationResponse: (resp) {
+        _handlePayload(resp.payload);
       },
     );
+
+    // Crear canal
+    const channel = AndroidNotificationChannel(
+      'med_channel',
+      'Recordatorios de Medicamentos',
+      description: 'Notificaciones de recordatorios',
+      importance: Importance.max,
+      playSound: true,
+    );
+
+    final androidPlatform = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    await androidPlatform?.createNotificationChannel(channel);
   }
 
-  // =============== MANEJO DE TAP EN NOTIFICACIÓN ===============
-  static void _handleTap(BuildContext context, String? payload) {
-    if (payload == null || payload.isEmpty) return;
+  // =============================================================
+  //    MANEJAR PAYLOAD SEGÚN TIPO DE NOTIFICACIÓN
+  // =============================================================
+  static void _handlePayload(String? payload) {
+    if (payload == null) return;
 
-    final p = payload.split("|");
-    final type = p[0];
-    final id = int.parse(p[1]);
-    final code = p[2];
-    final hour = p[3];
-    final med = p[4];
+    final parts = payload.split("|");
+    if (parts.isEmpty) return;
+
+    final type = parts[0];
 
     if (type == "immediate") {
-      Navigator.push(
-        context,
+      // immediate|id|code|hour|med
+      final id = int.parse(parts[1]);
+      final code = parts[2];
+      final hour = parts[3];
+      final med = parts[4];
+
+      navKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => ImmediateTakeScreen(
             reminderId: id,
@@ -47,8 +73,12 @@ class LocalNoti {
     }
 
     if (type == "delayed") {
-      Navigator.push(
-        context,
+      final id = int.parse(parts[1]);
+      final code = parts[2];
+      final hour = parts[3];
+      final med = parts[4];
+
+      navKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => DelayedQuestionScreen(
             reminderId: id,
@@ -61,46 +91,52 @@ class LocalNoti {
     }
   }
 
-  // =============== NOTIFICACIÓN INMEDIATA ===============
+  // --------------------------------------------------------
+  //   MOSTRAR INMEDIATA
+  // --------------------------------------------------------
   static Future<void> showImmediate({
     required String title,
     required String body,
-    required String payload, // immediate|id|code|hour|med
+    String? payload,
   }) async {
-    const android = AndroidNotificationDetails(
-      'meds_channel',
-      'Medicamentos',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-
     await _plugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,
-      const NotificationDetails(android: android),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'med_channel',
+          'Recordatorios de Medicamentos',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+        ),
+      ),
       payload: payload,
     );
   }
 
-  // =============== NOTIFICACIÓN DIFERIDA ===============
+  // --------------------------------------------------------
+  //   DIFERIDA
+  // --------------------------------------------------------
   static Future<void> showDelayedWithActions({
     required String title,
     required String body,
-    required String payload,
+    String? payload,
   }) async {
-    const android = AndroidNotificationDetails(
-      'meds_channel',
-      'Medicamentos',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-
     await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 + 1,
       title,
       body,
-      const NotificationDetails(android: android),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'med_channel',
+          'Recordatorios de Medicamentos',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+        ),
+      ),
       payload: payload,
     );
   }
