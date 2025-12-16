@@ -239,9 +239,9 @@ class DBHelper {
           "id_medicamento": idMed1,
           "dosis": "500 mg",
           "tipo_medicamento": "Pastilla",
-          "hora": "09:40",
+          "hora": "20:40",
           "frecuencia_horas": 4,
-          "fecha_inicio": "2025-12-02",
+          "fecha_inicio": "2025-12-15",
           "fecha_fin": "2025-12-24",
           "notas": "Tomar con agua",
           "activo": 1,
@@ -252,9 +252,9 @@ class DBHelper {
           "id_medicamento": idMed2,
           "dosis": "200 mg",
           "tipo_medicamento": "Pastilla",
-          "hora": "15:30",
+          "hora": "23:30",
           "frecuencia_horas": 6,
-          "fecha_inicio": "2025-12-01",
+          "fecha_inicio": "2025-12-15",
           "fecha_fin": "2025-12-24",
           "notas": "Tomar con agua",
           "activo": 1,
@@ -265,10 +265,10 @@ class DBHelper {
           "id_medicamento": idMed3,
           "dosis": "2 ml",
           "tipo_medicamento": "Jarabe",
-          "hora": "08:50",
+          "hora": "22:50",
           "frecuencia_horas": 4,
-          "fecha_inicio": "2025-12-02",
-          "fecha_fin": "2025-12-24",
+          "fecha_inicio": "2025-12-15",
+          "fecha_fin": "2025-12-21",
           "notas": "Tomar con agua",
           "activo": 1,
         });
@@ -551,6 +551,7 @@ class DBHelper {
         ...r,
         'medication': med.isNotEmpty ? med.first['nombre'] : 'Desconocido',
         'id': r['id_recordatorio'],
+        'patientCode': codigoUnico,
         'dose': r['dosis'],
         'type': r['tipo_medicamento'],
         'hour': r['hora'],
@@ -619,6 +620,18 @@ class DBHelper {
     await db.update(
       "recordatorios",
       {"nextTrigger": dt.toIso8601String()},
+      where: "id_recordatorio = ?",
+      whereArgs: [reminderId],
+    );
+  }
+
+  /// Desactivar recordatorio por ID
+  static Future<void> deactivateReminder(int reminderId) async {
+    final db = await database;
+
+    await db.update(
+      "recordatorios",
+      {"activo": 0},
       where: "id_recordatorio = ?",
       whereArgs: [reminderId],
     );

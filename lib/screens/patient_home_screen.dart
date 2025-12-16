@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../data/database_helper.dart';
+import '../services/local_notifications.dart';
 import 'reminder_details_screen.dart';
 import 'points_screen.dart';
 
@@ -14,23 +16,54 @@ class PatientHomeScreen extends StatefulWidget {
   State<PatientHomeScreen> createState() => _PatientHomeScreenState();
 }
 
-class _PatientHomeScreenState extends State<PatientHomeScreen> {
+class _PatientHomeScreenState extends State<PatientHomeScreen>
+    with WidgetsBindingObserver {
   List<Map<String, dynamic>> reminders = [];
   bool loading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     loadReminders();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      loadReminders();
+    }
+  }
+
   Future<void> loadReminders() async {
+    // Verificar permiso de alarmas exactas
+    await _checkSchedulePermission();
+
     final data = await DBHelper.getReminders(widget.code);
     final now = DateTime.now();
 
     reminders = [];
 
     for (final r in data) {
+      // Verificar si ya pasó la fecha final
+      final endDateStr = r["endDate"] as String?;
+      if (endDateStr != null && endDateStr.isNotEmpty) {
+        final endDate = DateTime.tryParse(endDateStr);
+        if (endDate != null && endDate.isBefore(now)) {
+          // Desactivar recordatorio expirado
+          await DBHelper.deactivateReminder(r["id"] as int);
+          // Cancelar su notificación
+          await LocalNoti.cancel(r["id"] as int);
+          continue; // No agregar a la lista
+        }
+      }
+
       DateTime? next;
 
       if (r["nextTrigger"] != null) {
@@ -63,7 +96,46 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
       });
     }
 
+    // Programar todas las notificaciones automáticas
+    await LocalNoti.scheduleAllReminders(reminders);
+
     setState(() => loading = false);
+  }
+
+  Future<void> _checkSchedulePermission() async {
+    final status = await Permission.scheduleExactAlarm.status;
+
+    if (status.isDenied || status.isPermanentlyDenied) {
+      if (mounted) {
+        // Mostrar diálogo explicativo
+        final shouldRequest = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Permiso necesario"),
+            content: const Text(
+              "Para que las notificaciones funcionen correctamente, necesitas "
+              "permitir que la app programe alarmas exactas.\n\n"
+              "Se abrirá la configuración del sistema.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Cancelar"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Ir a configuración"),
+              ),
+            ],
+          ),
+        );
+
+        if (shouldRequest == true) {
+          await Permission.scheduleExactAlarm.request();
+        }
+      }
+    }
   }
 
   String _formatHour(DateTime? dt, String fallback) {
@@ -95,31 +167,27 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
             children: [
               // HEADER
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.circle, color: Colors.green, size: 12),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE6F4EA),
-                          borderRadius: BorderRadius.circular(50),
-                        ),
-                        child: const Text(
-                          "Asistente Remedios",
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1B4332),
-                          ),
-                        ),
+                  const Icon(Icons.circle, color: Colors.green, size: 12),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE6F4EA),
+                      borderRadius: BorderRadius.circular(50),
+                    ),
+                    child: const Text(
+                      "Asistente Remedios",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1B4332),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),

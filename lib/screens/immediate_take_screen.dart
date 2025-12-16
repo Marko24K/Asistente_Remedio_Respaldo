@@ -64,7 +64,7 @@ class ImmediateTakeScreen extends StatelessWidget {
                               width: 80,
                               height: 80,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF4CAF50),
+                                color: const Color(0xFF52B788),
                                 borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Icon(
@@ -77,9 +77,10 @@ class ImmediateTakeScreen extends StatelessWidget {
 
                             // Título
                             const Text(
-                              "¡Felicitaciones!",
+                              "¡Gracias por tu honestidad!",
+                              textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: 22,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -91,14 +92,14 @@ class ImmediateTakeScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF4CAF50),
+                                color: Color(0xFF52B788),
                               ),
                             ),
                             const SizedBox(height: 12),
 
                             // Descripción
                             const Text(
-                              "Has marcado a tiempo tu toma. Tus puntos te acercan a nuevas recompensas.",
+                              "Agradecemos que informes tus tomas con sinceridad. Esto nos ayuda a cuidar mejor de ti.",
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 14,
@@ -113,7 +114,7 @@ class ImmediateTakeScreen extends StatelessWidget {
                               width: double.infinity,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF4CAF50),
+                                  backgroundColor: const Color(0xFF52B788),
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                   ),
@@ -123,10 +124,7 @@ class ImmediateTakeScreen extends StatelessWidget {
                                   elevation: 0,
                                 ),
                                 onPressed: () {
-                                  Navigator.pop(ctx); // Cerrar dialog
-                                  Navigator.pop(
-                                    context,
-                                  ); // Cerrar immediate_take_screen
+                                  Navigator.of(context).popUntil((route) => route.isFirst);
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
@@ -166,8 +164,20 @@ class ImmediateTakeScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF4CAF50),
+                                  color: Color(0xFF52B788),
                                 ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Texto adicional
+                            const Text(
+                              "Podrás ver este cambio incluso si estás sin conexión.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                                height: 1.3,
                               ),
                             ),
                           ],

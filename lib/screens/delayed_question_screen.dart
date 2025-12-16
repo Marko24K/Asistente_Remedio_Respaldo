@@ -67,16 +67,16 @@ class DelayedQuestionScreen extends StatelessWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Ícono verde con check
+                              // Ícono verde con estrella
                               Container(
                                 width: 80,
                                 height: 80,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF4CAF50),
+                                  color: const Color(0xFF52B788),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: const Icon(
-                                  Icons.check,
+                                  Icons.star,
                                   color: Colors.white,
                                   size: 48,
                                 ),
@@ -100,7 +100,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF4CAF50),
+                                  color: Color(0xFF52B788),
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -122,7 +122,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4CAF50),
+                                    backgroundColor: const Color(0xFF52B788),
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 14,
                                     ),
@@ -132,10 +132,9 @@ class DelayedQuestionScreen extends StatelessWidget {
                                     elevation: 0,
                                   ),
                                   onPressed: () {
-                                    Navigator.pop(ctx); // Cerrar dialog
-                                    Navigator.pop(
+                                    Navigator.of(
                                       context,
-                                    ); // Cerrar delayed_question
+                                    ).popUntil((route) => route.isFirst);
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
@@ -159,10 +158,9 @@ class DelayedQuestionScreen extends StatelessWidget {
                               // Botón "Ver mis puntos"
                               TextButton(
                                 onPressed: () {
-                                  Navigator.pop(ctx); // Cerrar dialog
-                                  Navigator.pop(
+                                  Navigator.of(
                                     context,
-                                  ); // Cerrar delayed_question
+                                  ).popUntil((route) => route.isFirst);
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -175,7 +173,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF4CAF50),
+                                    color: Color(0xFF52B788),
                                   ),
                                 ),
                               ),
@@ -242,7 +240,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                                 width: 80,
                                 height: 80,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFE57373),
+                                  color: const Color(0xFFD36B77),
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                                 child: const Icon(
@@ -268,7 +266,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                               const Text(
                                 "0 puntos en esta ocasión",
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 18,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.black87,
                                 ),
@@ -292,7 +290,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                                 width: double.infinity,
                                 child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF4CAF50),
+                                    backgroundColor: const Color(0xFF52B788),
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 14,
                                     ),
@@ -302,10 +300,9 @@ class DelayedQuestionScreen extends StatelessWidget {
                                     elevation: 0,
                                   ),
                                   onPressed: () {
-                                    Navigator.pop(ctx); // Cerrar dialog
-                                    Navigator.pop(
+                                    Navigator.of(
                                       context,
-                                    ); // Cerrar delayed_question
+                                    ).popUntil((route) => route.isFirst);
                                     Navigator.pushReplacement(
                                       context,
                                       MaterialPageRoute(
@@ -329,10 +326,9 @@ class DelayedQuestionScreen extends StatelessWidget {
                               // Botón "Ver mis puntos"
                               TextButton(
                                 onPressed: () {
-                                  Navigator.pop(ctx); // Cerrar dialog
-                                  Navigator.pop(
+                                  Navigator.of(
                                     context,
-                                  ); // Cerrar delayed_question
+                                  ).popUntil((route) => route.isFirst);
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -345,7 +341,7 @@ class DelayedQuestionScreen extends StatelessWidget {
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF4CAF50),
+                                    color: Color(0xFF52B788),
                                   ),
                                 ),
                               ),

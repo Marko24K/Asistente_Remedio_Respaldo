@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:intl/intl.dart';
 import '../screens/immediate_take_screen.dart';
 import '../screens/delayed_question_screen.dart';
 
@@ -98,9 +100,10 @@ class LocalNoti {
     required String title,
     required String body,
     String? payload,
+    int? notifId,
   }) async {
     await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notifId ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000),
       title,
       body,
       const NotificationDetails(
@@ -110,6 +113,7 @@ class LocalNoti {
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
+          sound: RawResourceAndroidNotificationSound('pills'),
         ),
       ),
       payload: payload,
@@ -135,9 +139,103 @@ class LocalNoti {
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
+          sound: RawResourceAndroidNotificationSound('pills'),
         ),
       ),
       payload: payload,
     );
+  }
+
+  // --------------------------------------------------------
+  //   CANCELAR NOTIFICACIÓN
+  // --------------------------------------------------------
+  static Future<void> cancel(int notifId) async {
+    await _plugin.cancel(notifId);
+  }
+
+  // --------------------------------------------------------
+  //   CANCELAR TODAS LAS NOTIFICACIONES
+  // --------------------------------------------------------
+  static Future<void> cancelAll() async {
+    await _plugin.cancelAll();
+  }
+
+  // --------------------------------------------------------
+  //   PROGRAMAR NOTIFICACIÓN AUTOMÁTICA
+  // --------------------------------------------------------
+  static Future<void> scheduleReminder({
+    required int reminderId,
+    required String code,
+    required String medication,
+    required DateTime scheduledTime,
+  }) async {
+    final tz.TZDateTime tzScheduledTime = tz.TZDateTime.from(
+      scheduledTime,
+      tz.getLocation('America/Santiago'),
+    );
+
+    final hour = DateFormat("HH:mm").format(scheduledTime);
+
+    await _plugin.zonedSchedule(
+      reminderId,
+      '¡Hora de tu medicamento!',
+      '$medication a las $hour',
+      tzScheduledTime,
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'med_channel',
+          'Recordatorios de Medicamentos',
+          importance: Importance.max,
+          priority: Priority.high,
+          playSound: true,
+          sound: RawResourceAndroidNotificationSound('pills'),
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: "immediate|$reminderId|$code|$hour|$medication",
+    );
+  }
+
+  // --------------------------------------------------------
+  //   PROGRAMAR TODOS LOS RECORDATORIOS ACTIVOS
+  // --------------------------------------------------------
+  static Future<void> scheduleAllReminders(
+    List<Map<String, dynamic>> reminders,
+  ) async {
+    try {
+      // Cancelar todas las notificaciones programadas existentes
+      await cancelAll();
+
+      // Programar cada recordatorio activo
+      for (final r in reminders) {
+        try {
+          final nextTrigger = r['nextTrigger'];
+          if (nextTrigger != null) {
+            DateTime? scheduledTime;
+            if (nextTrigger is DateTime) {
+              scheduledTime = nextTrigger;
+            } else if (nextTrigger is String) {
+              scheduledTime = DateTime.tryParse(nextTrigger);
+            }
+
+            if (scheduledTime != null &&
+                scheduledTime.isAfter(DateTime.now())) {
+              await scheduleReminder(
+                reminderId: r['id'] as int,
+                code: r['patientCode'] as String,
+                medication: r['medication'] as String,
+                scheduledTime: scheduledTime,
+              );
+            }
+          }
+        } catch (e) {
+          // Si falla programar un recordatorio individual, continuar con los demás
+          print('Error programando recordatorio ${r['id']}: $e');
+        }
+      }
+    } catch (e) {
+      // Si falla la programación general, los recordatorios siguen visibles
+      print('Error en scheduleAllReminders: $e');
+    }
   }
 }

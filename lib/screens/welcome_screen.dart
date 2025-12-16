@@ -20,6 +20,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     // Solicitar permiso de notificación
     await Permission.notification.request();
 
+    // Solicitar permiso de alarmas exactas (Android 12+)
+    if (await Permission.scheduleExactAlarm.isDenied) {
+      await Permission.scheduleExactAlarm.request();
+    }
+
     // Guardar que ya se aceptaron permisos (aunque los niegue)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("accepted_permissions", true);
@@ -28,9 +33,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => PatientHomeScreen(code: "A92KD7"),
-        ),
+        MaterialPageRoute(builder: (_) => PatientHomeScreen(code: "A92KD7")),
       );
     }
   }
@@ -45,15 +48,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.medical_services_outlined,
-                      size: 90, color: Colors.indigo),
+                  Icon(
+                    Icons.medical_services_outlined,
+                    size: 90,
+                    color: Colors.indigo,
+                  ),
                   const SizedBox(height: 20),
                   const Text(
                     "Bienvenido a Asistente Remedios",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   const Padding(
@@ -71,9 +74,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     onPressed: _requestPermissions,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 14),
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
                     ),
-                  )
+                  ),
                 ],
               ),
       ),

@@ -118,6 +118,7 @@ class _PointsScreenState extends State<PointsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
         title: const Text(
           "Mis Puntos",
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
@@ -140,6 +141,10 @@ class _PointsScreenState extends State<PointsScreen> {
                   const SizedBox(height: 22),
 
                   _cardProgreso(), // tarjeta progreso nivel
+
+                  const SizedBox(height: 22),
+
+                  _cardLogros(), // tarjeta logros y medallas
 
                   const SizedBox(height: 22),
 
@@ -232,7 +237,7 @@ class _PointsScreenState extends State<PointsScreen> {
     final xpSiguienteNivel = DBHelper.xpParaNivel(nivel + 1);
     final xpEnNivel = xpActual - xpNivelActual;
     final xpNecesario = xpSiguienteNivel - xpNivelActual;
-    
+
     double progreso = xpEnNivel / xpNecesario;
     if (progreso > 1.0) progreso = 1.0;
 
@@ -278,6 +283,80 @@ class _PointsScreenState extends State<PointsScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------- TARJETA LOGROS Y MEDALLAS -------------------
+  Widget _cardLogros() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Logros y medallas",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade600),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Grid de logros
+          Row(
+            children: [
+              Expanded(child: _logroItem(Icons.directions_walk, "Primer Paso")),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _logroItem(Icons.calendar_today, "Constancia semanal"),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _logroItem(Icons.shield, "Responsable")),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _logroItem(Icons.sentiment_satisfied_alt, "Bienestar"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _logroItem(IconData icon, String titulo) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F4EA),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: const Color(0xFF2D6A4F)),
+          const SizedBox(height: 10),
+          Text(
+            titulo,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ),
           ),
         ],
       ),

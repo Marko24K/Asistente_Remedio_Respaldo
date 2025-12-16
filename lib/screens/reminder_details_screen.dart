@@ -72,30 +72,64 @@ class ReminderDetailScreen extends StatelessWidget {
         final med = r["medication"];
 
         // Próxima hora simulada
-        final simulatedNext = DateTime.now().add(const Duration(minutes: 1));
+        final simulatedNext = DateTime.now().add(const Duration(seconds: 15));
         final nextHour = DateFormat("HH:mm").format(simulatedNext);
 
-        // 1) Notificación inmediata (solo mostrar)
+        // Guardar el momento de inicio de la simulación
+        final startTime = DateTime.now();
+
+        // 1) Notificación inmediata
+        final notifId = DateTime.now().millisecondsSinceEpoch ~/ 1000;
         await LocalNoti.showImmediate(
           title: "¡Hora de tu medicamento!",
           body: "$med a las $nextHour",
           payload: "immediate|$id|$code|$nextHour|$med",
+          notifId: notifId,
         );
 
-        // 2) Tiempo para marcar
-        await Future.delayed(const Duration(minutes: 1));
+        // Mostrar mensaje al usuario
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Notificación enviada. Presiona la notificación para marcar como tomado.",
+              ),
+              duration: Duration(seconds: 3),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
 
-        // 3) Cerrar pantalla → vuelve a home
-        if (context.mounted) Navigator.pop(context, true);
+        // 2) Esperar 15 segundos para dar tiempo a marcar
+        await Future.delayed(const Duration(seconds: 15));
 
-        // 4) 10 segundos → notificación diferida
-        await Future.delayed(const Duration(seconds: 10));
+        // 3) Verificar si se marcó a tiempo
+        bool marcadoATiempo = false;
+        final eventosRecientes = await DBHelper.getEventosToma(code, limit: 5);
 
-        await LocalNoti.showDelayedWithActions(
-          title: "¿Tomaste tu medicamento?",
-          body: med,
-          payload: "delayed|$id|$code|$nextHour|$med",
-        );
+        for (final evento in eventosRecientes) {
+          // Verificar si el evento corresponde a este recordatorio
+          if (evento['id_recordatorio'] == id) {
+            final fechaEvento = DateTime.parse(
+              evento['fecha_hora_programada'] as String,
+            );
+
+            // Si el evento fue registrado DESPUÉS de iniciar la simulación
+            if (fechaEvento.isAfter(startTime)) {
+              marcadoATiempo = true;
+              break;
+            }
+          }
+        }
+
+        // 4) Solo enviar notificación diferida si NO se marcó a tiempo
+        if (!marcadoATiempo) {
+          await LocalNoti.showDelayedWithActions(
+            title: "¿Tomaste tu medicamento?",
+            body: med,
+            payload: "delayed|$id|$code|$nextHour|$med",
+          );
+        }
       },
       child: const Text(
         "Simular Notificación",
@@ -132,6 +166,7 @@ class ReminderDetailScreen extends StatelessWidget {
               final freq = (r["frequencyHours"] ?? 24) as int;
               final id = r["id"] as int;
               final code = r["patientCode"] as String;
+              final medication = r["medication"] as String;
 
               final now = DateTime.now();
               final next = now.add(Duration(hours: freq));
@@ -144,6 +179,15 @@ class ReminderDetailScreen extends StatelessWidget {
                 idRecordatorio: id,
                 estado: 'a_tiempo',
                 fechaHoraReal: now,
+              );
+
+              // Reprogramar la siguiente notificación
+              await LocalNoti.cancel(id);
+              await LocalNoti.scheduleReminder(
+                reminderId: id,
+                code: code,
+                medication: medication,
+                scheduledTime: next,
               );
 
               AudioPlayerService.playSound("sounds/correct-ding.mp3");
@@ -167,7 +211,7 @@ class ReminderDetailScreen extends StatelessWidget {
                             width: 80,
                             height: 80,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF4CAF50),
+                              color: const Color(0xFF52B788),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Icon(
@@ -180,9 +224,10 @@ class ReminderDetailScreen extends StatelessWidget {
 
                           // Título
                           const Text(
-                            "¡Felicitaciones!",
+                            "¡Gracias por tu honestidad!",
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 22,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -194,14 +239,14 @@ class ReminderDetailScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF4CAF50),
+                              color: Color(0xFF2E8B57),
                             ),
                           ),
                           const SizedBox(height: 12),
 
                           // Descripción
                           const Text(
-                            "Gracias por confirmar tu toma. Tus puntos te acercan a nuevas recompensas.",
+                            "Agradecemos que informes tus tomas con sinceridad. Esto nos ayuda a cuidar mejor de ti.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -216,7 +261,7 @@ class ReminderDetailScreen extends StatelessWidget {
                             width: double.infinity,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF4CAF50),
+                                backgroundColor: Color(0xFF2E8B57),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
@@ -226,10 +271,9 @@ class ReminderDetailScreen extends StatelessWidget {
                                 elevation: 0,
                               ),
                               onPressed: () {
-                                Navigator.pop(ctx); // Cerrar dialog
-                                Navigator.pop(
+                                Navigator.of(
                                   context,
-                                ); // Cerrar reminder_details
+                                ).popUntil((route) => route.isFirst);
                                 Navigator.pushReplacement(
                                   context,
                                   MaterialPageRoute(
@@ -267,7 +311,7 @@ class ReminderDetailScreen extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w500,
-                                color: Color(0xFF4CAF50),
+                                color: Color(0xFF2E8B57),
                               ),
                             ),
                           ),
@@ -413,8 +457,65 @@ class ReminderDetailScreen extends StatelessWidget {
   void _showNotes(BuildContext context, String text) {
     showDialog(
       context: context,
-      builder: (_) =>
-          AlertDialog(title: const Text("Notas"), content: Text(text)),
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Nota",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                text.isEmpty ? "Sin notas" : text,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Colors.black87,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF52B788),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "Entendido",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
